@@ -1,7 +1,10 @@
 extends KinematicBody2D
+tool
 
 ########
 # Player
+
+signal died
 
 enum PlayerType {
     Player,
@@ -12,6 +15,7 @@ var PlayerInputController = load("res://actors/player/PlayerInputController.gd")
 var AIInputController = load("res://actors/player/AIInputController.gd")
 
 export (PlayerType) var player_type = PlayerType.Player
+export (String) var player_name = "Player"
 
 onready var animation_player = $AnimationPlayer
 onready var attack_cooldown_timer = $AttackCooldownTimer
@@ -19,6 +23,7 @@ onready var shield_cooldown_timer = $ShieldCooldownTimer
 onready var sprite = $Sprite
 onready var visibility_notifier = $VisibilityNotifier2D
 onready var collision_ray = $CollisionRay
+onready var label = $HUD/Label
 
 const GRAVITY = 1000.0
 const DRAG_FORCE = 1300.0
@@ -28,13 +33,16 @@ const WALK_FORCE = 800.0
 const JUMP_SPEED = 600.0
 const JUMP_MAX_AIRBORNE_TIME = 0.2
 const ATTACK_SPEED = 200.0
-const ATTACK_KNOCKBACK = 750
+const ATTACK_KNOCKBACK = 650
 const SHIELD_KNOCKBACK = 50
+const HIT_DAMAGES = 8
 
 var velocity = Vector2()
 var hit_force = Vector2()
 var on_air_time = 100
 var direction = 1
+var damages = 0
+
 var jumping = false
 var falling = false
 var attacking = false
@@ -71,10 +79,20 @@ func _ready():
     self.animation_player.connect("animation_finished", self, "_on_animation_finished")
     self.visibility_notifier.connect("screen_exited", self, "_on_screen_exited")
 
+    # Set name
+    self._update_label()
+
     # Run
-    self.animation_player.play("running")
+    if not Engine.is_editor_hint():
+        self.animation_player.play("running")
+
+func _process(delta):
+    self._update_label()
 
 func _physics_process(delta):
+    if Engine.is_editor_hint():
+        return
+
     var force = Vector2(0, GRAVITY)
 
     # Ray orientation
@@ -158,16 +176,16 @@ func _physics_process(delta):
         self.jumping = true
 
     # Animation handling
-    if self.attacking:
+    if self.is_hit:
+        self.animation_player.play("hit")
+    elif self.blocking:
+        self.animation_player.play("shield")
+    elif self.attacking:
         self.animation_player.play("attacking")
     elif self.jumping:
         self.animation_player.play("jumping")
     elif self.falling:
         self.animation_player.play("falling")
-    elif self.is_hit:
-        self.animation_player.play("hit")
-    elif self.blocking:
-        self.animation_player.play("shield")
     else:
         self.animation_player.play("running")
 
@@ -196,15 +214,24 @@ func _collide_with_player(player):
         else:
             player.hit(self)
 
+func _update_label():
+    self.label.text = self.player_name + " - " + str(self.damages) + "%"
+
 ################
 # Public methods
 
 func hit(attacker):
     """Hit."""
-    self.is_hit = true
+    if self.is_hit:
+        return
 
+    self.is_hit = true
+    self.damages += HIT_DAMAGES
+
+    var atk_coef = 1 + (damages / 100.0)
+    var knockback = ATTACK_KNOCKBACK * atk_coef
     var hit_direction = (attacker.position - position).normalized()
-    self.hit_force = -hit_direction * Vector2(ATTACK_KNOCKBACK, 0)
+    self.hit_force = Vector2(-hit_direction.x * knockback, -knockback / 4)
 
 func knockback():
     """Knockback"""
@@ -221,6 +248,8 @@ func reset():
     self.hit_force = Vector2()
     self.on_air_time = 100
     self.direction = 1
+    self.damages = 0
+
     self.jumping = false
     self.falling = false
     self.attacking = false
@@ -233,6 +262,8 @@ func reset():
     self.prev_jump_pressed = false
     self.prev_attack_pressed = false
     self.prev_shield_pressed = false
+
+    self.animation_player.play("idle")
 
 #################
 # Event callbacks
@@ -255,4 +286,5 @@ func _on_animation_finished(anim_name):
         self.blocking = false
 
 func _on_screen_exited():
+    self.emit_signal("died")
     self.respawn()

@@ -3,7 +3,7 @@ extends "res://actors/player/BaseInputController.gd"
 ########################
 # AI Input Controller
 
-const PLATFORM_THRESHOLD = 50
+const PLATFORM_THRESHOLD = 60
 
 var direction = -1  # left
 var has_attacked = false
@@ -38,14 +38,17 @@ func _detect_platform():
         var collider_position = collider.position
         var shape_extents = shape.extents
 
-        # Position is at top-left
-        var max_x = collider_position.x + shape_extents.x * 2
-        var min_x = collider_position.x
+        # Position is at the middle
+        var max_x = collider_position.x + shape_extents.x
+        var min_x = collider_position.x - shape_extents.x
 
-        return {
+        var platform_data = {
+            "name": collider.name,
             "min_x": min_x,
             "max_x": max_x
         }
+
+        return platform_data
 
     return null
 
@@ -59,6 +62,9 @@ func move_on_platform():
     if platform_limits == null:
         return
 
+    # Debug
+    # print("Platform detected: " + JSON.print(platform_limits))
+
     # Move depending on direction
     if direction == -1:
         left_pressed = true
@@ -66,8 +72,10 @@ func move_on_platform():
         right_pressed = true
 
     if player.position.x > platform_limits.max_x - PLATFORM_THRESHOLD:
+        # print("RIGHT EDGE DETECTED")
         direction = -1
     elif player.position.x < platform_limits.min_x + PLATFORM_THRESHOLD:
+        # print("LEFT EDGE DETECTED")
         direction = 1
 
 func attack_player():
