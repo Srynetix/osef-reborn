@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://actors/scroller/Scroller.tscn" type="PackedScene" id=1]
+[ext_resource path="res://assets/backgrounds/backgroundColorGrass.png" type="Texture" id=2]
+[ext_resource path="res://assets/backgrounds/Elements/groundLayer1.png" type="Texture" id=3]
+
+[node name="TestScroller" type="Node2D"]
+
+[node name="Scroller" parent="." instance=ExtResource( 1 )]
+texture = ExtResource( 2 )
+scroll_speed = 500.0
+texture_scale = Vector2( 0.585, 0.585 )
+
+[node name="Scroller2" parent="." instance=ExtResource( 1 )]
+position = Vector2( 0, 530 )
+texture = ExtResource( 3 )
+scroll_speed = 100.0
+texture_scale = Vector2( 0.85, 0.85 )
+
